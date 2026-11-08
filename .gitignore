@@ -1,0 +1,10 @@
+node_modules/
+.vendor/
+dist/
+.env
+.env.*
+!.env.example
+.local/
+evidence/private/
+*.log
+.DS_Store
