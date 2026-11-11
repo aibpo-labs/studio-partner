@@ -8,6 +8,7 @@ import { attachIM } from "./im.mjs";
 import { designRequest, agentBinding } from "./design-client.mjs";
 import * as design from "./design.mjs";
 import * as partner from "./partner.mjs";
+import { credentialRequest } from "./voice-contract.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const workbench = path.resolve(fileURLToPath(new URL("../examples/workbench/", import.meta.url)));
 const port = Number(process.env.PORT || 18227),
@@ -23,7 +24,7 @@ async function body(req) {
   let raw = "";
   for await (const c of req) {
     raw += c;
-    if (Buffer.byteLength(raw) > 100000) throw new Error("请求过大");
+    if (Buffer.byteLength(raw) > 512 * 1024) throw new Error("请求过大");
   }
   return JSON.parse(raw || "{}");
 }
@@ -83,23 +84,40 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, await publicSettings());
     if (req.method === "GET" && u.pathname === "/api/partner/robots")
       return json(res, 200, await partner.listRobots());
+    if (req.method === 'GET' && u.pathname === '/api/partner/published-models')
+      return json(res, 200, await partner.publishedModels());
+    const bindingRoute = u.pathname.match(/^\/api\/partner\/robots\/([\w-]+)\/binding$/);
+    if (req.method === 'PUT' && bindingRoute)
+      return json(res, 200, await partner.updateModelBinding(bindingRoute[1], await body(req)));
+    const presentationRoute = u.pathname.match(/^\/api\/partner\/robots\/([\w-]+)\/presentation$/);
+    if (req.method === 'GET' && presentationRoute)
+      return json(res, 200, partner.robotPresentation(presentationRoute[1]));
     if (req.method === "POST" && u.pathname === "/api/partner/robots")
       return json(res, 201, await partner.createRobot(await body(req)));
     if (req.method === "GET" && u.pathname === "/api/partner/catalog")
       return json(res, 200, await partner.catalog());
+    if (req.method === 'GET' && u.pathname === '/api/partner/knowledge')
+      return json(res, 200, await partner.listKnowledge());
+    if (req.method === 'POST' && u.pathname === '/api/partner/knowledge')
+      return json(res, 201, await partner.createKnowledge(await body(req)));
+    const skillRoute = u.pathname.match(/^\/api\/partner\/skills\/([\w.-]+)\/versions\/([\w.-]+)$/);
+    if (req.method === 'GET' && skillRoute) return json(res, 200, await partner.readSkill(skillRoute[1], skillRoute[2]));
     if (req.method === "GET" && u.pathname === "/api/partner/conversations")
       return json(res, 200, await partner.listCalls(Object.fromEntries(u.searchParams)));
     const robotRoute = u.pathname.match(/^\/api\/partner\/robots\/([\w-]+)(?:\/(validate|publish))?$/);
     if (robotRoute) {
       const [, id, action] = robotRoute;
       if (req.method === "PUT" && !action) return json(res, 200, await partner.saveRobot(id, await body(req)));
-      if (req.method === "POST" && action === "validate") return json(res, 200, await partner.validateRobot(id));
-      if (req.method === "POST" && action === "publish") return json(res, 200, await partner.publishRobot(id));
+      if (req.method === "POST" && action === "validate") return json(res, 200, await partner.validateRobot(id, await body(req)));
+      if (req.method === "POST" && action === "publish") return json(res, 200, await partner.publishRobot(id, await body(req)));
       if (req.method === "DELETE" && !action) return json(res, 200, await partner.deleteRobot(id));
     }
     const callRoute = u.pathname.match(/^\/api\/partner\/conversations\/([\w-]+)$/);
     if (req.method === "GET" && callRoute)
       return json(res, 200, await partner.callDetail(callRoute[1]));
+    const callEventsRoute = u.pathname.match(/^\/api\/partner\/conversations\/([\w-]+)\/events$/);
+    if (req.method === "GET" && callEventsRoute)
+      return json(res, 200, await partner.callEvents(callEventsRoute[1], Object.fromEntries(u.searchParams)));
     if (req.method === "PUT" && u.pathname === "/api/settings") {
       if (design.activeDesign() || ws.clients.size)
         return json(res, 409, { error: "请先结束对话，再保存连接配置" });
@@ -136,15 +154,7 @@ const server = http.createServer(async (req, res) => {
       credentialAt = Date.now();
       const data = await voiceRequest("/voice/v1/webrtc/credentials", {
         method: "POST",
-        body: JSON.stringify({
-          model: bound.model,
-          from: "studio-partner",
-          instructions: bound.config.instructions || "你是简洁友好的中文客服助手，每次回答不超过60字。",
-          greeting: bound.config.greeting || "你好，我是语音助手，请问有什么可以帮你？",
-          voice: bound.config.voice,
-          silence_duration_ms: bound.config.silence_duration_ms,
-          allow_mcp_tools: false,
-        }),
+        body: JSON.stringify(credentialRequest(bound)),
       });
       if (!data.ws || !data.password) throw new Error("凭证响应不完整");
       return json(
@@ -260,7 +270,8 @@ const server = http.createServer(async (req, res) => {
     }
     return json(res, 404, { error: "Not found" });
   } catch (e) {
-    return json(res, e.code === "ENOENT" ? 404 : 400, {
+    return json(res, e.statusCode || (e.code === "ENOENT" ? 404 : 400), {
+      requestId: e.requestId,
       error:
         e.code === "ENOENT"
           ? "尚未初始化，请检查配置或先构建前端"
@@ -284,7 +295,7 @@ server.on("upgrade", async (req, socket, head) => {
     const s = await settings(), u = new URL(req.url, `http://${req.headers.host}`);
     if (!s.voiceKey) throw new Error("missing");
     const bound = u.searchParams.get("robotId") ? await partner.robotForRuntime(u.searchParams.get("robotId")) : null;
-    const runtime = bound ? { ...s, model: bound.model, instructions: bound.config.instructions } : s;
+    const runtime = bound ? { ...s, model: bound.model, published: true } : s;
     ws.handleUpgrade(req, socket, head, (client) => attachIM(client, runtime));
   } catch {
     socket.end("HTTP/1.1 503 Service Unavailable\r\n\r\n");

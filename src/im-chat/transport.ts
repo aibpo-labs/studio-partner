@@ -18,12 +18,16 @@ export const sendPublicTextMessage=transport.send;
 export const submitPublicTextCardAction=transport.action;
 export const streamPublicTextSessionEvents=transport.subscribe;
 export const closeTextSession=transport.close;
-export async function getPublicTextServiceRobot(_robotId: string) {
+export async function getPublicTextServiceRobot(robotId: string) {
   if(chatMode==='live'){
     const response=await fetch('/api/settings');
     if(!response.ok)throw new ApiError('请先启动应用后端并配置 Voice PaaS');
     const config=await response.json();
     if(!config.voiceKeyConfigured)throw new ApiError('请先在连接配置页填写 Voice PaaS Key');
+    const responseRobot=await fetch(`/api/partner/robots/${encodeURIComponent(robotId)}/presentation`);
+    if(!responseRobot.ok)throw new ApiError('无法读取客服展示配置，请检查机器人绑定');
+    const robot=await responseRobot.json();
+    return {name:robot.name||query.get('name')?.slice(0,80)||'在线客服',presentation:robot.presentation};
   }
-  return {name:query.get('name')?.slice(0,80)||'在线客服'};
+  return {name:query.get('name')?.slice(0,80)||'在线客服',presentation:null};
 }

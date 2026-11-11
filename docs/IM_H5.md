@@ -65,7 +65,7 @@ H5 单独加载 Tailwind 样式，避免影响工作台。修改 H5 后执行 `n
 
 ## 如何扩展
 
-1. 修改 `presentation.ts`，配置品牌欢迎语、分类问题与快捷入口；不需要修改消息渲染器。
+1. 真实模式优先读取 `.local/partner-robots.json` 对应机器人条目的 `presentation`，通过 `GET /api/partner/robots/{id}/presentation` 返回展示内容。可设置 `greeting`、`entryDescription`、`quickPrompts`、`questionGroups`、`followUpPrompts` 和 `inputSuggestions`。问题项使用 `{label,prompt,hot?}`；`questionGroups` 是“分类名 → 批次数组 → 问题数组”。省略底部追问词时复用快捷入口，省略输入联想时使用分类问题。快捷入口可选 `icon`：`ticket`、`guide`、`travel`、`wifi`、`shopping`、`eligibility`。修改绑定文件后重启后端并刷新 H5；业务专属文案保存在本地配置，不写进公共组件。未配置时使用 `presentation.ts` 的通用样例；不需要修改消息渲染器。
 2. 对接文件服务后开启 `images` 能力。上传完成后把经过授权的图片引用传给实际服务，不把本地 Blob 地址当云端文件地址。
 3. 将实际业务结果转换为 UI 卡片事件；把操作交给后端验证和执行。不要从任意模型文本中直接执行指令或发布配置。
 4. 对接人工系统后开启 `handoff` 能力，以真实系统事件驱动队列和接入状态。

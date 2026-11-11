@@ -33,14 +33,17 @@ export function WelcomePanels({
 }: WelcomePanelsProps) {
   const { questionGroups, quickPrompts, greeting } = presentation;
   const icons = [ClipboardList, Wrench, Ticket, BookOpenText, Headset];
+  const namedIcons: Record<string, typeof Ticket> = { ticket: Ticket, guide: BookOpenText, travel: TrainFront, wifi: Cable, shopping: Coffee, eligibility: KeyRound };
   const quickEntries = quickPrompts.map((prompt, index) => ({
     ...prompt,
-    icon: icons[index] ?? Ticket,
+    icon: namedIcons[prompt.icon || ''] || icons[index] || Ticket,
   }));
   const groups = Object.keys(questionGroups);
   const [group, setGroup] = useState(groups[0]);
   const [batch, setBatch] = useState(0);
-  const questions = questionGroups[group][batch % questionGroups[group].length];
+  const activeGroup = questionGroups[group] ? group : groups[0];
+  const batches = questionGroups[activeGroup] || [];
+  const questions = batches.length ? batches[batch % batches.length] : [];
 
   return (
     <>
@@ -70,7 +73,7 @@ export function WelcomePanels({
 
       {featuredCard}
 
-      <section className="rounded-2xl border border-[#EDEEF1]/70 bg-white px-4 pb-1 pt-4 shadow-[0_4px_16px_rgba(22,24,29,0.025)]">
+      {groups.length > 0 && <section className="rounded-2xl border border-[#EDEEF1]/70 bg-white px-4 pb-1 pt-4 shadow-[0_4px_16px_rgba(22,24,29,0.025)]">
         <div className="flex items-center justify-between">
           <h2 className="text-[15.5px] font-semibold text-[#16181D]">猜你想问</h2>
           <button
@@ -93,7 +96,7 @@ export function WelcomePanels({
                 setBatch(0);
               }}
               className={`shrink-0 rounded-full px-3 py-1.5 text-xs ${
-                name === group ? "bg-[#16181D] text-white" : "bg-[#F5F6F8] text-[#5A6272]"
+                name === activeGroup ? "bg-[#16181D] text-white" : "bg-[#F5F6F8] text-[#5A6272]"
               }`}
             >
               {name}
@@ -119,7 +122,7 @@ export function WelcomePanels({
             </button>
           ))}
         </div>
-      </section>
+      </section>}
     </>
   );
 }

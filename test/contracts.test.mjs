@@ -104,6 +104,20 @@ test("IM waits for ready, preserves multi-turn socket and cancels upstream respo
   client.emit("close");
   assert.equal(upstream.readyState, 3);
 });
+test("IM follows Realtime event ids and treats only completed responses as success", () => {
+  const client = new Socket(), upstream = new Socket();
+  attachIM(client, { voiceBase: "https://api.latenth.com", voiceKey: "secret", model: "sample-model", published: true }, () => upstream);
+  upstream.event({ type: "session.created", event_id: "evt-1", session: { id: "sess-1" } });
+  upstream.event({ type: "session.updated", event_id: "evt-2", session: { id: "sess-1" } });
+  client.event({ text: "你好" });
+  upstream.event({ type: "response.output_text.done", event_id: "evt-3", response_id: "resp-1", text: "完整回复" });
+  upstream.event({ type: "response.done", event_id: "evt-4", response: { id: "resp-1", status: "cancelled", status_details: { reason: "client_cancel" }, usage: { total_tokens: 3 } } });
+  assert.equal(client.sent.find((x) => x.type === "ready").eventId, "evt-2");
+  assert.equal(client.sent.find((x) => x.type === "delta").delta, "完整回复");
+  assert.equal(client.sent.at(-1).status, "cancelled");
+  assert.equal(client.sent.at(-1).eventId, "evt-4");
+  client.emit("close");
+});
 test("Design projects text, approvals and terminal state independently of file generation", () => {
   const s = { messages: [{ role: "assistant", text: "" }] };
   projectEvent(s, { type: "text.delta", data: { delta: "方案" } });

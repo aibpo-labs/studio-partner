@@ -116,7 +116,8 @@ function conversationTimeline(
 }
 
 export default function ChatPage({ robotId = "im" }: { robotId?: string }) {
-  const presentation = getImPresentation(robotId);
+  const [presentation, setPresentation] = useState(() => getImPresentation(robotId));
+  const [robotLoading, setRobotLoading] = useState(true);
   const [robotName, setRobotName] = useState("在线客服");
   const [robotError, setRobotError] = useState("");
   const [sessionInput, setSessionInput] = useState("");
@@ -145,9 +146,18 @@ export default function ChatPage({ robotId = "im" }: { robotId?: string }) {
   );
 
   useEffect(() => {
+    let active = true;
+    setRobotLoading(true);
     void getPublicTextServiceRobot(robotId)
-      .then((robot) => setRobotName(publicServiceName(robot.name)))
-      .catch((cause) => setRobotError(cause instanceof Error ? cause.message : "客服当前不可用"));
+      .then((robot) => {
+        if (!active) return;
+        setRobotName(publicServiceName(robot.name));
+        setPresentation(getImPresentation(robotId, robot.presentation));
+        setRobotError('');
+      })
+      .catch((cause) => { if (active) setRobotError(cause instanceof Error ? cause.message : "客服当前不可用"); })
+      .finally(() => { if (active) setRobotLoading(false); });
+    return () => { active = false; };
   }, [robotId]);
 
   const refresh = useCallback(
@@ -470,7 +480,9 @@ export default function ChatPage({ robotId = "im" }: { robotId?: string }) {
           )}
         </header>
 
-        {robotError ? (
+        {robotLoading ? (
+          <div className="grid flex-1 place-items-center p-8 text-sm text-[#9299A6]">正在加载客服…</div>
+        ) : robotError ? (
           <div className="grid flex-1 place-items-center p-8 text-center text-sm text-red-600">
             {robotError}
           </div>

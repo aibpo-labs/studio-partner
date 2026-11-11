@@ -26,11 +26,11 @@
 
 ## 数据和状态
 
-机器人绑定保存本地 ID、类型和云端配置 ID。表单先在页面编辑，保存时提交草稿；校验和发布使用服务端草稿 revision。开始对话时重新读取最新启用版本的运行模型 ID。
+机器人绑定保存本地 ID、类型和云端配置 ID。表单先在页面编辑，保存、校验和发布要求页面 revision 与云端一致，过期编辑返回冲突。开始对话时重新读取最新启用版本；若绑定明确的 `model`，则固定该版本并只读展示，禁用时不回退。
 
-Skill 表单随机器人草稿提交，实际资源格式和运行能力由服务契约决定。移除 Skill 不等于删除所有历史版本。应用保存时保留未知云端配置字段，但扩展表单仍应避免发送过时值覆盖它们。
+Skill 使用 `markdown` 或 `id/version` 引用；独立知识版本通过 `knowledge_refs` 挂载。移除 Skill 不等于删除历史资源版本。应用保存时保留未知云端配置字段。IM 不覆盖已发布模型的提示词或关闭内置读取工具；外部 Function/MCP 暂未适配。语音开场白和静默提醒属于本地 channel 配置，临时凭证请求继承其余模型字段。
 
-IM 在一个 WebSocket 中保持多轮上下文；H5 展示历史在当前标签页存储。服务端没有独立的 IM 历史数据库。语音历史当前是服务账户范围，不能认为按机器人隔离。
+IM 在一个 WebSocket 中保持多轮上下文；H5 展示历史在当前标签页存储。服务端没有独立的 IM 历史数据库。语音和 Realtime 文本历史均通过上游会话接口读取，当前为服务账户范围，不能认为按机器人隔离。详情页展示消息、会话信息与录音，不展示协议事件面板。
 
 Design 将本地会话映射到服务端 Session 和 Run。运行时消费 SSE，按 sequence 去重，并用 Last-Event-ID 续接。附件先上传，再将工作区路径加入用户消息。完成后读取输出快照。重启后端只恢复已持久化会话，不自动续跑被中断的任务。文件上传和下载已接入，图片理解取决于 Agent 能力；尚无通用工作区删除或重命名接口。
 
@@ -44,11 +44,16 @@ Design 只产生文件，不自动更新机器人配置。若扩展导入功能�
 | --- | --- |
 | `GET /api/settings`、`PUT /api/settings` | 读取配置状态、保存连接信息；GET 不返回长期 Key |
 | `POST /api/check` | `{ "service": "voice" }` 或 `{ "service": "design" }` 检查连接 |
+| `GET /api/partner/published-models` | 当前账户可绑定的启用发布版本，仅返回 model/name/version |
+| `PUT /api/partner/robots/{id}/binding` | `{ "modelId": "完整发布模型 ID" }` 更新固定版本机器人的本地绑定 |
 | `GET /api/partner/catalog` | 可用资源目录 |
+| `GET /api/partner/knowledge`、`POST /api/partner/knowledge` | 列出知识资源；以 id/version/markdown/resources 创建知识版本 |
+| `GET /api/partner/skills/{id}/versions/{version}` | 读取已有 Skill 资源版本 |
 | `GET /api/partner/robots`、`POST /api/partner/robots` | 读取绑定机器人、创建机器人 |
 | `PUT /api/partner/robots/{id}`、`DELETE /api/partner/robots/{id}` | 保存草稿、删除云端配置及本地绑定；删除尚无页面入口 |
 | `POST /api/partner/robots/{id}/validate`、`.../publish` | 校验和发布当前服务端草稿 |
-| `GET /api/partner/conversations`、`.../{callId}` | 账户范围通话列表、详情 |
+| `GET /api/partner/conversations`、`.../{callId}` | 账户范围语音及文本会话列表、详情；列表返回 items/next_cursor，支持 origin/cursor/limit |
+| `GET /api/partner/conversations/{callId}/events` | 可选的开发诊断接口，保留 capture_state/items/next_cursor；用户详情页不请求或展示事件 |
 | `POST /api/voice/credential` | 用 `robotId` 申请已发布机器人的临时语音凭证 |
 | `WS /api/im?robotId={id}` | 发送 `{ "text": "你好" }`；接收 ready/delta/done/error，停止发送 `{ "type": "cancel" }` |
 | `POST /api/design/sessions`、`GET /api/design/sessions/{id}` | 创建、读取 Design 会话 |

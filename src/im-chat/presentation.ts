@@ -1,4 +1,4 @@
-export interface DemoPrompt { label: string; prompt: string; hot?: boolean }
+export interface DemoPrompt { label: string; prompt: string; hot?: boolean; icon?: string }
 export interface ImPresentation {
   greeting: string;
   entryDescription?: string;
@@ -29,4 +29,17 @@ const presentation: ImPresentation = {
   followUpPrompts:quickPrompts,
   inputSuggestions:Object.values(questionGroups).flat(2),
 };
-export function getImPresentation(_robotId: string) { return presentation; }
+export function getImPresentation(_robotId: string, custom?: Partial<ImPresentation> | null): ImPresentation {
+  if (!custom) return presentation;
+  const valid = (items: unknown): items is DemoPrompt[] => Array.isArray(items) && items.length > 0 && items.every(p => typeof p?.label === 'string' && typeof p?.prompt === 'string');
+  const groups = Object.fromEntries(Object.entries(custom.questionGroups || {}).filter(([, batches]) => Array.isArray(batches) && batches.length > 0 && batches.every(valid)));
+  const quick = valid(custom.quickPrompts) ? custom.quickPrompts : [];
+  return {
+    greeting: typeof custom.greeting === 'string' ? custom.greeting : '您好，请问有什么可以帮您？',
+    entryDescription: typeof custom.entryDescription === 'string' ? custom.entryDescription : '欢迎咨询，开始你的对话。',
+    quickPrompts: quick,
+    questionGroups: groups,
+    followUpPrompts: valid(custom.followUpPrompts) ? custom.followUpPrompts : quick,
+    inputSuggestions: valid(custom.inputSuggestions) ? custom.inputSuggestions : Object.values(groups).flat(2),
+  };
+}
