@@ -1,0 +1,167 @@
+{
+  "greeting": "您好，欢迎咨询 VISA 尊享礼宾权益。我可以帮您了解出境旅行、购物礼遇、餐饮生活等权益，以及适用卡别、活动有效期和使用方式。请问您想了解哪一项？",
+  "entryDescription": "了解 VISA 卡权益、适用条件与使用指引。",
+  "quickPrompts": [
+    {
+      "label": "权益总览",
+      "prompt": "请介绍可以咨询的 Visa 权益类别。",
+      "icon": "ticket"
+    },
+    {
+      "label": "出境旅行",
+      "prompt": "Visa 有哪些出境旅行相关权益？",
+      "icon": "travel"
+    },
+    {
+      "label": "Wi-Fi 优惠",
+      "prompt": "漫游超人 Wi-Fi 的 Visa 优惠有哪些适用条件？",
+      "icon": "wifi"
+    },
+    {
+      "label": "购物礼遇",
+      "prompt": "Visa 有哪些购物相关礼遇？请说明有效期。",
+      "icon": "shopping"
+    },
+    {
+      "label": "适用卡别",
+      "prompt": "如何确认我的 Visa 卡是否适用某项权益？",
+      "icon": "eligibility"
+    }
+  ],
+  "questionGroups": {
+    "旅行权益": [
+      [
+        {
+          "label": "漫游超人 Wi-Fi 有什么优惠？",
+          "prompt": "漫游超人 Wi-Fi 有什么优惠？",
+          "hot": true
+        },
+        {
+          "label": "皇家加勒比邮轮权益还在有效期吗？",
+          "prompt": "皇家加勒比邮轮权益还在有效期吗？",
+          "hot": false
+        },
+        {
+          "label": "Visa 有哪些机场相关权益？",
+          "prompt": "Visa 有哪些机场相关权益？",
+          "hot": false
+        }
+      ],
+      [
+        {
+          "label": "Visa 有哪些境外出行权益？",
+          "prompt": "Visa 有哪些境外出行权益？",
+          "hot": false
+        },
+        {
+          "label": "香港交通相关权益如何使用？",
+          "prompt": "香港交通相关权益如何使用？",
+          "hot": false
+        },
+        {
+          "label": "旅行权益需要提前预约吗？",
+          "prompt": "旅行权益需要提前预约吗？",
+          "hot": false
+        }
+      ]
+    ],
+    "购物礼遇": [
+      [
+        {
+          "label": "心斋桥大丸有什么 Visa 礼遇？",
+          "prompt": "心斋桥大丸有什么 Visa 礼遇？",
+          "hot": true
+        },
+        {
+          "label": "韩国乐天优惠还在有效期吗？",
+          "prompt": "韩国乐天优惠还在有效期吗？",
+          "hot": false
+        },
+        {
+          "label": "使用购物优惠需要满足哪些条件？",
+          "prompt": "使用购物优惠需要满足哪些条件？",
+          "hot": false
+        }
+      ],
+      [
+        {
+          "label": "购物优惠适用哪些 Visa 卡？",
+          "prompt": "购物优惠适用哪些 Visa 卡？",
+          "hot": false
+        },
+        {
+          "label": "如何查询购物权益的活动有效期？",
+          "prompt": "如何查询购物权益的活动有效期？",
+          "hot": false
+        }
+      ]
+    ],
+    "餐饮生活": [
+      [
+        {
+          "label": "Visa 有哪些咖啡和餐饮权益？",
+          "prompt": "Visa 有哪些咖啡和餐饮权益？",
+          "hot": true
+        },
+        {
+          "label": "Visa 有哪些健康相关权益？",
+          "prompt": "Visa 有哪些健康相关权益？",
+          "hot": false
+        },
+        {
+          "label": "Visa 有哪些教育相关权益？",
+          "prompt": "Visa 有哪些教育相关权益？",
+          "hot": false
+        }
+      ],
+      [
+        {
+          "label": "餐饮权益如何使用？",
+          "prompt": "餐饮权益如何使用？",
+          "hot": false
+        },
+        {
+          "label": "生活权益有没有使用次数限制？",
+          "prompt": "生活权益有没有使用次数限制？",
+          "hot": false
+        }
+      ]
+    ],
+    "使用指引": [
+      [
+        {
+          "label": "农行双标卡如何领取 Wi-Fi 优惠券？",
+          "prompt": "农行双标卡如何领取 Wi-Fi 优惠券？",
+          "hot": true
+        },
+        {
+          "label": "Visa 双标卡是否可以使用这些权益？",
+          "prompt": "Visa 双标卡是否可以使用这些权益？",
+          "hot": false
+        },
+        {
+          "label": "如何确认权益有效期与使用次数？",
+          "prompt": "如何确认权益有效期与使用次数？",
+          "hot": false
+        }
+      ],
+      [
+        {
+          "label": "使用权益前需要准备哪些信息？",
+          "prompt": "使用权益前需要准备哪些信息？",
+          "hot": false
+        },
+        {
+          "label": "优惠券申请后多久能收到？",
+          "prompt": "优惠券申请后多久能收到？",
+          "hot": false
+        },
+        {
+          "label": "如何联系对应权益的商户？",
+          "prompt": "如何联系对应权益的商户？",
+          "hot": false
+        }
+      ]
+    ]
+  }
+}

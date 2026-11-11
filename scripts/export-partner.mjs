@@ -8,7 +8,7 @@ const target = path.join(root, '.local/exports/studio-partner');
 const allowed = [
   '.env.example', '.gitignore', 'README.md', 'package.json', 'package-lock.json',
   'im-h5.html', 'vite.config.js', 'src/im-chat', 'server', 'skills', 'design-agent', 'docs',
-  'test', 'examples/workbench/index.html', 'examples/workbench/app.js',
+  'test', 'examples/im-templates', 'examples/workbench/index.html', 'examples/workbench/app.js',
   'examples/workbench/style.css', 'examples/workbench/workspace.css',
   'scripts/sync-sdk.mjs', 'scripts/preview-workbench.mjs', 'scripts/export-partner.mjs',
 ];
