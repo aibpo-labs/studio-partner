@@ -10,6 +10,8 @@ const allowed = [
   'im-h5.html', 'vite.config.js', 'src/im-chat', 'server', 'skills', 'design-agent', 'docs',
   'test', 'examples/im-templates', 'examples/workbench/index.html', 'examples/workbench/app.js',
   'examples/workbench/style.css', 'examples/workbench/workspace.css',
+  'examples/workbench/design-format.mjs', 'examples/workbench/design-format.js',
+  'scripts/build-workbench.mjs',
   'scripts/sync-sdk.mjs', 'scripts/preview-workbench.mjs', 'scripts/export-partner.mjs',
 ];
 const collected = [];

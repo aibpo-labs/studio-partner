@@ -119,7 +119,25 @@ IM 和语音均继承已发布模型的提示词、Skill 和知识库；IM 不�
 
 输入单文件最多 10 MB，每轮最多 10 个附件；页面接受图片、PDF、文本、Markdown、JSON、CSV、DOCX 和 XLSX。输出区当前只收集 1 MiB 以内的 JSON、Markdown、TXT。支持停止运行，尚无通用工作区删除/重命名功能。重启后端会保留已有消息，但不会自动恢复正在执行的请求。
 
+Design 回复支持 Markdown 标题、列表、表格和代码块；运行与工具调用期间显示动态状态。页面不执行回复中的 HTML，也不自动加载远程图片。常见 API Key 会在消息与标题展示时隐藏，但这不等于删除已保存的消息，请不要在对话中粘贴凭证。
+
+是否需要操作确认由服务方发布的 Design Agent 权限策略决定。免确认模式无需逐次点击授权，但仍受服务端的文件和网络权限限制；需要确认的操作仍在对话中处理。
+
 服务方可参考公开的 [LatenTX Agent Skill](https://api.latenth.com/skills/latentx/SKILL.md) 准备配置设计能力；本项目中的 `design-agent/instructions.md` 只是行为补充，不能代替完整的 Skill 资料。本应用不会创建或发布远端 Design Agent。
+
+### 更新已有安装
+
+停止本地服务后执行以下命令，再按原方式启动。保留自己的 `.env` 和 `.local/`，不要用其他安装的配置覆盖它们；仓库不包含服务凭证或客户专属 Agent 配置。
+
+```bash
+git pull --ff-only
+npm ci
+npm run sync-sdk
+npm run build
+npm start
+```
+
+若使用 18228 预览入口，另开终端运行 `npm run preview:workbench`，然后刷新浏览器。更新前如有自行修改的代码，先提交或备份。
 
 ## 5. 二次开发入口
 

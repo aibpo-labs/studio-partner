@@ -1,4 +1,5 @@
 // Customer workbench. Robot configuration and call history use the local API.
+const {renderDesignMarkdown,redactDesignText}=DesignFormat;
 const paths = {
   bot: 'M12 3v3M8 3h4M5 8h14v12H5zM2 12v4m20-4v4M9 12v2m6-2v2M9 17h6',
   voice: 'M12 3v18M8 6v12M4 9v6m12-9v12m4-9v6',
@@ -138,8 +139,16 @@ function normalizeDesign(s) {
 function applyDesignRemote(s,remote) {
   const previous=s.pending||[];
   Object.assign(s,normalizeDesign({...remote,id:s.id,remoteId:remote.remoteId||s.remoteId,pending:previous,stream:s.stream||null}));
-  if(!s.title||s.title==='新的对话'){const first=s.messages?.find(m=>m.role==='user'&&m.text);if(first)s.title=first.text.slice(0,22);}
+  if(!s.title||s.title==='新的对话'){const first=s.messages?.find(m=>m.role==='user'&&m.text);if(first)s.title=redactDesignText(first.text).slice(0,22);}
   return s;
+}
+function bindDesignSession(r,s,remote) {
+  if(!remote.id||!remote.remoteId)throw new Error('Design Agent 未返回有效会话');
+  const d=designStore(r),previousId=s.id;
+  s.id=remote.id;
+  if(d.current===previousId)d.current=s.id;
+  applyDesignRemote(s,remote);
+  localStorage.setItem(`studio-partner-design:${r.id}`,s.id);
 }
 function designStream(r,s) {
   if(!s.remoteId||s.stream)return;
@@ -153,7 +162,7 @@ async function ensureDesignSession(r) {
   if(s.remoteId){designStream(r,s);return s;}
   if(d.loading)return s;
   d.loading=true;render();
-  try { const remote=await api('/api/design/sessions',{method:'POST',body:'{}'});applyDesignRemote(s,remote);s.remoteId=remote.remoteId;localStorage.setItem(`studio-partner-design:${r.id}`,s.id);designStream(r,s); }
+  try { const remote=await api('/api/design/sessions',{method:'POST',body:'{}'});bindDesignSession(r,s,remote);designStream(r,s); }
   catch(e){s.error=e.message;s.status='连接失败';}
   finally {d.loading=false;render();}
   return s;
@@ -162,7 +171,7 @@ async function restoreDesignSession(r) {
   const d=designStore(r),s=designSession(r),saved=localStorage.getItem(`studio-partner-design:${r.id}`);
   if(s.remoteId||!saved)return ensureDesignSession(r);
   d.loading=true;render();
-  try {const remote=await api(`/api/design/sessions/${encodeURIComponent(saved)}`);applyDesignRemote(s,remote);s.remoteId=remote.remoteId;designStream(r,s);}catch{localStorage.removeItem(`studio-partner-design:${r.id}`);await ensureDesignSession(r);}finally{d.loading=false;render();}
+  try {const remote=await api(`/api/design/sessions/${encodeURIComponent(saved)}`);bindDesignSession(r,s,remote);designStream(r,s);}catch{localStorage.removeItem(`studio-partner-design:${r.id}`);d.loading=false;await ensureDesignSession(r);}finally{d.loading=false;render();}
   return s;
 }
 function newDesignSession(r) {
@@ -177,7 +186,7 @@ function workspace(s) {
 function design(r) {
   const d=designStore(r),s=designSession(r);
   const status=s.error||s.status||(d.loading?'正在连接 Design Agent':'Design 就绪');
-  return `<div class="design-layout ${state.workspace?'with-workspace':''}" id="design-dropzone"><section class="card design-chat"><div class="design-head"><span class="tiny-avatar">${icon('spark')}</span><strong>Design</strong><small class="design-status">${esc(status)}</small><div class="design-head-actions"><select id="design-session-select" aria-label="Design 历史对话">${d.sessions.map(x=>`<option value="${x.id}" ${x.id===s.id?'selected':''}>${esc(x.title)}</option>`).join('')}</select>${button('新对话','new-design','tiny','plus')}<button class="btn tiny ${state.workspace?'selected':''}" data-action="toggle-workspace" aria-expanded="${state.workspace}">${icon('folder')}工作区</button></div></div><div class="design-messages" id="design-messages" role="log" aria-label="Design 消息" aria-live="polite"><div class="design-day">今天</div>${s.messages.map(m=>`<div class="design-message ${m.role}"><span class="tiny-avatar ${m.role==='user'?'user-avatar':''}">${icon(m.role==='user'?'user':'spark')}</span><div class="design-message-body"><div class="message-meta"><strong>${m.role==='user'?'你':'Design'}</strong><span>${m.time||''}</span></div>${m.text?`<div class="design-message-text">${esc(m.text)}</div>`:(m.role==='assistant'&&s.busy?'<div class="design-message-text thinking">Design 正在处理…</div>':'')}${m.files?.length?`<div class="attachments">${m.files.map(f=>attachment(f)).join('')}</div>`:''}</div></div>`).join('')}</div>${s.interaction?`<div class="design-approval"><strong>需要确认后继续</strong><span>${esc(s.interaction.detail?.reason||'Design Agent 请求执行一项操作。')}</span><div>${button('允许本次','design-accept','primary','check')}${button('拒绝','design-decline')}</div></div>`:''}<form class="design-compose" id="design-form"><div class="attachments pending-attachments">${s.pending.map(f=>attachment(f,true)).join('')}</div><textarea name="prompt" id="design-prompt" aria-label="Design 消息输入" placeholder="描述你的想法，或粘贴图片…" rows="2" ${s.busy?'disabled':''}>${esc(s.prompt)}</textarea><div class="composer-toolbar"><div class="composer-tools">${button('添加附件','upload','tiny','clip')}<small>支持文件、图片与拖入</small></div>${s.busy?button('停止','design-stop','tiny'): '<button class="btn primary tiny" aria-label="发送 Design 消息">'+icon('send')+'发送</button>'}</div></form><div class="compose-hint">Enter 发送 · Shift + Enter 换行 · Design Agent 会生成可下载的配置文件</div><input id="design-files" type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.md,.json,.csv,.docx,.xlsx" hidden/><div class="drop-overlay">${icon('upload')}拖放文件到这里</div></section>${state.workspace?workspace(s):''}</div>`;
+  return `<div class="design-layout ${state.workspace?'with-workspace':''}" id="design-dropzone"><section class="card design-chat"><div class="design-head"><span class="tiny-avatar">${icon('spark')}</span><strong>Design</strong><small class="design-status" role="status">${s.busy&&!s.interaction?'<span class="design-spinner" aria-hidden="true"></span>':''}${esc(status)}</small><div class="design-head-actions"><select id="design-session-select" aria-label="Design 历史对话">${d.sessions.map(x=>`<option value="${x.id}" ${x.id===s.id?'selected':''}>${esc(redactDesignText(x.title))}</option>`).join('')}</select>${button('新对话','new-design','tiny','plus')}<button class="btn tiny ${state.workspace?'selected':''}" data-action="toggle-workspace" aria-expanded="${state.workspace}">${icon('folder')}工作区</button></div></div><div class="design-messages" id="design-messages" role="log" aria-label="Design 消息" aria-live="polite"><div class="design-day">今天</div>${s.messages.map(m=>`<div class="design-message ${m.role}"><span class="tiny-avatar ${m.role==='user'?'user-avatar':''}">${icon(m.role==='user'?'user':'spark')}</span><div class="design-message-body"><div class="message-meta"><strong>${m.role==='user'?'你':'Design'}</strong><span>${m.time||''}</span></div>${m.text?`<div class="design-message-text ${m.role==='assistant'?'design-markdown':''}">${m.role==='assistant'?renderDesignMarkdown(m.text):esc(redactDesignText(m.text))}</div>`:(m.role==='assistant'&&s.busy?'<div class="design-message-text thinking"><span class="design-dots" aria-hidden="true"><i></i><i></i><i></i></span>Design 正在处理…</div>':'')}${m.files?.length?`<div class="attachments">${m.files.map(f=>attachment(f)).join('')}</div>`:''}</div></div>`).join('')}</div>${s.interaction?`<div class="design-approval"><strong>需要确认后继续</strong><span>${esc(s.interaction.detail?.reason||'Design Agent 请求执行一项操作。')}</span><div>${button('允许本次','design-accept','primary','check')}${button('拒绝','design-decline')}</div></div>`:''}<form class="design-compose" id="design-form"><div class="attachments pending-attachments">${s.pending.map(f=>attachment(f,true)).join('')}</div><textarea name="prompt" id="design-prompt" aria-label="Design 消息输入" placeholder="描述你的想法，或粘贴图片…" rows="2" ${s.busy?'disabled':''}>${esc(s.prompt)}</textarea><div class="composer-toolbar"><div class="composer-tools">${button('添加附件','upload','tiny','clip')}<small>支持文件、图片与拖入</small></div>${s.busy?button('停止','design-stop','tiny'): '<button class="btn primary tiny" aria-label="发送 Design 消息">'+icon('send')+'发送</button>'}</div></form><div class="compose-hint">Enter 发送 · Shift + Enter 换行 · Design Agent 会生成可下载的配置文件</div><input id="design-files" type="file" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.txt,.md,.json,.csv,.docx,.xlsx" hidden/><div class="drop-overlay">${icon('upload')}拖放文件到这里</div></section>${state.workspace?workspace(s):''}</div>`;
 }
 async function addFiles(fileList) {
   const r=currentRobot(),s=designSession(r),errors=[];
@@ -345,7 +354,7 @@ document.addEventListener('submit',async e=>{
       }
       if(!prompt.trim())return;
       s.prompt='';s.pending=[];s.messages.push({role:'user',text:text||`请参考附件：${files.map(f=>f.name).join('、')}`,files:files.map(f=>({id:f.id,name:f.name,type:f.type,size:f.size,url:f.url})),time:now()});
-      if(s.title==='新的对话')s.title=(text||files[0]?.name||'Design 对话').slice(0,22);
+      if(s.title==='新的对话')s.title=redactDesignText(text||files[0]?.name||'Design 对话').slice(0,22);
       s.messages.push({role:'assistant',text:'',files:[],time:now()});s.busy=true;s.error='';s.status='Design 启动中';render();
       const remote=await api(`/api/design/sessions/${encodeURIComponent(s.id)}/run`,{method:'POST',body:JSON.stringify({text:prompt})});applyDesignRemote(s,remote);designStream(r,s);render();document.getElementById('design-prompt')?.focus();
     }catch(x){s.error=x.message;s.busy=false;s.status='运行失败';render();toast(x.message);}})();

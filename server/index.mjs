@@ -249,6 +249,7 @@ const server = http.createServer(async (req, res) => {
       const workbenchFiles = new Set([
         "/index.html",
         "/app.js",
+        "/design-format.js",
         "/style.css",
         "/workspace.css",
       ]);

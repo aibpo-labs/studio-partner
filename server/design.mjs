@@ -4,6 +4,7 @@ import { designRequest, agentBinding } from "./design-client.mjs";
 import { dataDir } from "./settings.mjs";
 const sessions = new Map();
 const listeners = new Map();
+const DESIGN_RUN_TIMEOUT_MS = 600000;
 let saving = Promise.resolve();
 try {
   for (const s of JSON.parse(
@@ -97,7 +98,7 @@ export async function startDesign(id, text) {
   try {
     const run = await designRequest(`/v1/runtime/sessions/${s.remoteId}/runs`, {
       method: "POST",
-      body: { text, idempotencyKey: randomUUID(), timeoutMillis: 180000 },
+      body: { text, idempotencyKey: randomUUID(), timeoutMillis: DESIGN_RUN_TIMEOUT_MS },
     });
     s.runId = run.runId;
     if (!s.runId) throw new Error("Design Agent 未返回 Run ID");
@@ -210,8 +211,11 @@ async function finish(s, status) {
 export function projectEvent(s, e) {
   const d = e.data || {},
     message = s.messages.at(-1);
-  if (e.type === "text.delta" && typeof d.delta === "string")
+  if (e.type === "text.delta" && typeof d.delta === "string") {
+    if (message.segmentCompleted && message.text && d.delta) message.text += "\n\n";
+    message.segmentCompleted = false;
     message.text += d.delta;
+  }
   if (e.type === "item.completed") {
     const i = d.item || {};
     if (
@@ -220,6 +224,7 @@ export function projectEvent(s, e) {
       !message.text
     )
       message.text = i.text;
+    if (["agentMessage", "agent_message"].includes(i.type)) message.segmentCompleted = true;
     if (["commandExecution", "command_execution"].includes(i.type))
       s.status = "正在整理配置文件";
   }
@@ -241,7 +246,7 @@ export function projectEvent(s, e) {
 }
 async function consume(s) {
   let sequence = 0;
-  const deadline = Date.now() + 210000;
+  const deadline = Date.now() + DESIGN_RUN_TIMEOUT_MS + 30000;
   try {
     while (Date.now() < deadline) {
       const r = await designRequest(`/v1/runtime/runs/${s.runId}/events`, {

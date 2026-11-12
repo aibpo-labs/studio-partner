@@ -145,3 +145,11 @@ test("partner robot exposes its local binding ID while retaining the Voice PaaS 
   assert.equal(robot.type, "文本机器人");
   assert.equal(robot.icon, "chat");
 });
+
+test('Design separates commentary from the next Markdown message',()=>{
+ const s={messages:[{role:'assistant',text:''}]};
+ projectEvent(s,{type:'text.delta',data:{delta:'正在查询。'}});
+ projectEvent(s,{type:'item.completed',data:{item:{type:'agentMessage',text:'正在查询。'}}});
+ projectEvent(s,{type:'text.delta',data:{delta:'# 查询结果'}});
+ assert.equal(s.messages[0].text,'正在查询。\n\n# 查询结果');
+});
