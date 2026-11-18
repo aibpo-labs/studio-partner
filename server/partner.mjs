@@ -51,7 +51,7 @@ export function publicRobot(robot, binding = {}) {
   return {
     id: binding.id || robot.id, type: (binding.type || robot.type) === "im" ? "文本机器人" : "语音机器人",
     icon: (binding.type || robot.type) === "im" ? "chat" : "voice", name: binding.name || config.name || robot.name,
-    desc: config.description || "", model: binding.model || published?.model || config.llm || "latentx-realtime-2.5-mini",
+    desc: config.description || "", model: binding.model || published?.model || config.base_model || "",
     readOnly: !!binding.model, versionUnavailable: !!binding.model && !published,
     published: published?.version || null, skills: (config.skills || []).map(skillView),
     knowledge_refs: config.knowledge_refs || [], draft: !binding.model && (!published || !isDeepStrictEqual(draftConfig(config, {}), draftConfig(published.config || {}, {}))),
@@ -112,12 +112,17 @@ export async function createRobot(input) {
     robots.push(entry); await persist();
     return publicRobot(model, entry);
   }
+  const available = await catalog();
+  const baseModel = input.base_model ?? "latentx-realtime-2.5-mini";
+  const model = available.voice_models?.find(m => m.id === baseModel);
+  if (!model) throw httpError('所选基础模型未开放，请从当前服务目录选择');
   const config = {
-    name, llm: "latentx-mini", asr: "latentx-asr", tts: "latentx-tts",
-    voice: "female-default", instructions: "你是友好、专业的中文客服。根据已提供的业务资料回答，不确定时说明需要人工核实。",
+    name, base_model: baseModel,
+    voice: model.default_voice || "", instructions: "你是友好、专业的中文客服。根据已提供的业务资料回答，不确定时说明需要人工核实。",
     temperature: 0.2, max_tokens: 1024, silence_duration_ms: 300,
     skills: [], knowledge_refs: [], mcp_refs: [], tools: [],
   };
+  checkLanguages(config, available);
   await request(`/voice/v1/custom-models/${encodeURIComponent(id)}`, { method: "PUT", body: { revision: 0, config } });
   const entry = { id, customId: id, type, channel: { greeting: "你好，我可以为你提供帮助。", idle_timeout_ms: 10000 } };
   robots.push(entry); await persist();
@@ -133,7 +138,7 @@ export async function saveRobot(id, input) {
     throw httpError('配置已被更新，请刷新机器人后再保存，当前编辑尚未覆盖云端', 409);
   const channel = channelConfig(input.channel, entry.channel);
   const config = draftConfig(current.config, input);
-  if (config.asr_language || config.tts_language) checkLanguages(config, await catalog());
+  checkLanguages(config, await catalog());
   const saved = await request(`/voice/v1/custom-models/${encodeURIComponent(entry.customId)}`, { method: "PUT", body: { revision: current.revision, config } });
   entry.channel = channel; await persist();
   return publicRobot(saved, entry);

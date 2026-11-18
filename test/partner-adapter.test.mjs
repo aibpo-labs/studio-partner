@@ -64,10 +64,10 @@ test('robot listing respects workspace bindings without hiding customer-selected
 test('stale revisions cannot overwrite drafts and current saves preserve unedited resources', async t => {
   const f = await fixture(t);
   await writeFile(path.join(f.root, '.local/partner-robots.json'), JSON.stringify([{id:'local',customId:'model',type:'voice'}]));
-  const config={name:'Original',llm:'latentx-mini',asr:'latentx-asr',tts:'latentx-tts',skills:[],knowledge_refs:[{id:'faq',version:'v1'}],tts_language:'yue-HK'};
+  const config={name:'Original',base_model:'latentx-realtime-2.5-mini',skills:[],knowledge_refs:[{id:'faq',version:'v1'}],tts_language:'yue-HK'};
   const writes=[];
   t.mock.method(globalThis,'fetch',async (url,options)=>{
-    if(url.endsWith('/catalog'))return new Response(JSON.stringify({data:{components:[{id:'latentx-tts',kind:'tts',languages:['yue-HK']}]}}));
+    if(url.endsWith('/catalog'))return new Response(JSON.stringify({data:{voice_models:[{id:'latentx-realtime-2.5-mini',output_languages:['yue-HK']}]}}));
     if(options.method==='PUT'){
       const body=JSON.parse(options.body);writes.push(body);
       return new Response(JSON.stringify({data:{id:'model',revision:3,config:body.config,versions:[]}}));
@@ -129,4 +129,41 @@ test('model binding selects the exact published ID and persists only the local a
   assert.equal(await readFile(path.join(f.root,'.local/partner-robots.json'),'utf8'),JSON.stringify(stored,null,2));
   const created=await createRobot({name:'Text',type:'im',modelId:'custom-new-v2'});
   assert.equal(created.customId,'new');assert.equal(created.model,'custom-new-v2');assert.equal(created.icon,'chat');
+});
+
+test('new robots use catalog model defaults without component fields',async t=>{
+  const f=await fixture(t),writes=[];
+  const catalog={voice_models:[{id:'latentx-realtime-2.5-mini',default_voice:'default-demo',voices:[{id:'default-demo'}]}]};
+  t.mock.method(globalThis,'fetch',async(url,options)=>{
+    if(url.endsWith('/catalog'))return new Response(JSON.stringify({data:catalog}));
+    if(options.method==='PUT'){writes.push(JSON.parse(options.body));return new Response(JSON.stringify({data:{}}));}
+    return new Response(JSON.stringify({data:[]}));
+  });
+  const {createRobot}=await f.module('partner.mjs');
+  const robot=await createRobot({name:'New model',type:'im'});
+  assert.equal(writes.length,1);assert.equal(writes[0].config.base_model,'latentx-realtime-2.5-mini');
+  assert.equal(writes[0].config.voice,'default-demo');
+  for(const field of ['llm','asr','tts'])assert.equal(Object.hasOwn(writes[0].config,field),false);
+  assert.equal(robot.config.base_model,'latentx-realtime-2.5-mini');
+  await assert.rejects(createRobot({name:'Unavailable',base_model:'unknown'}));
+  assert.equal(writes.length,1);
+});
+
+test('saving an unmapped legacy draft requires an explicit model and preserves resources',async t=>{
+  const f=await fixture(t),writes=[];
+  await writeFile(path.join(f.root,'.local/partner-robots.json'),JSON.stringify([{id:'legacy',customId:'legacy',type:'voice'}]));
+  const config={name:'Legacy',base_model:'',llm:'old-component',asr:'old',tts:'old',skills:[{id:'sop',version:'v1',preload:true}],knowledge_refs:[{id:'faq',version:'v1'}]};
+  t.mock.method(globalThis,'fetch',async(url,options)=>{
+    if(url.endsWith('/catalog'))return new Response(JSON.stringify({data:{voice_models:[{id:'chosen'}]}}));
+    if(options.method==='PUT'){const body=JSON.parse(options.body);writes.push(body);return new Response(JSON.stringify({data:{id:'legacy',config:body.config,revision:3}}));}
+    return new Response(JSON.stringify({data:{id:'legacy',config,revision:2}}));
+  });
+  const {saveRobot}=await f.module('partner.mjs');
+  await assert.rejects(saveRobot('legacy',{revision:2,name:'Changed'}),/明确选择/);
+  assert.equal(writes.length,0);
+  await saveRobot('legacy',{revision:2,base_model:'chosen'});
+  assert.equal(writes[0].config.base_model,'chosen');
+  assert.deepEqual(writes[0].config.knowledge_refs,config.knowledge_refs);
+  assert.deepEqual(writes[0].config.skills,config.skills);
+  for(const field of ['llm','asr','tts'])assert.equal(Object.hasOwn(writes[0].config,field),false);
 });

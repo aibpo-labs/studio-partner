@@ -45,19 +45,31 @@ export function channelConfig(input = {}, previous = {}) {
 }
 export function draftConfig(current, input) {
   const config = { ...current };
-  for (const field of ['name','instructions','llm','asr','tts','asr_language','tts_language','voice','temperature','max_tokens','silence_duration_ms','mcp_refs','tools'])
+  for (const field of ['name','instructions','base_model','asr_language','tts_language','voice','temperature','max_tokens','silence_duration_ms','mcp_refs','tools'])
     if (Object.hasOwn(input, field)) config[field] = input[field];
   config.skills = (input.skills ?? current.skills ?? []).map(normalizeSkill);
   config.knowledge_refs = (input.knowledge_refs ?? current.knowledge_refs ?? []).map(resourceRef);
   // greeting/idle timeout belong to the channel, not the published model contract.
   delete config.greeting; delete config.idle_timeout_ms;
+  delete config.llm; delete config.asr; delete config.tts;
   return config;
 }
 export function checkLanguages(config, catalog) {
-  for (const kind of ['asr', 'tts']) {
-    const language = config[`${kind}_language`];
-    if (language && !catalog.components?.find(c => c.kind === kind && c.id === config[kind])?.languages?.includes(language))
-      throw httpError(`${kind.toUpperCase()} 不支持语言 ${language}，请从当前服务目录选择`);
+  if (!config.base_model) throw httpError('请明确选择基础模型后保存；旧配置不会自动转换为其他型号');
+  const model = catalog.voice_models?.find(m => m.id === config.base_model);
+  if (!model) throw httpError('基础模型未在当前服务目录中开放，请重新选择');
+  for (const [field, choices, label] of [
+    ['asr_language', model.input_languages, '识别语言'],
+    ['tts_language', model.output_languages, '播报语言'],
+  ]) {
+    if (config[field] && !choices?.includes(config[field]))
+      throw httpError(`${label}不受当前模型支持，请从服务目录选择`);
+  }
+  if (config.voice) {
+    const voice = model.voices?.find(v => v.id === config.voice);
+    if (!voice) throw httpError('音色不受当前模型支持，请重新选择');
+    if (config.tts_language && voice.languages?.length && !voice.languages.includes(config.tts_language))
+      throw httpError('当前音色不支持所选播报语言，请重新选择');
   }
 }
 export function credentialRequest(runtime) {

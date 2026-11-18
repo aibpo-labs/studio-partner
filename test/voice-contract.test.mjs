@@ -14,7 +14,7 @@ test('legacy Skill form becomes valid inline Markdown and reference assets remai
   assert.equal(Object.hasOwn(normalizeSkill(ref),'markdown'),false);
 });
 test('partial draft updates preserve new language and knowledge fields and separate channel settings', () => {
-  const current={name:'客服',llm:'latentx-mini',asr:'latentx-asr',tts:'latentx-tts',asr_language:'zh-CN',tts_language:'yue-HK',knowledge_refs:[{id:'faq',version:'v1'}],skills:[{id:'sop',version:'v1',preload:false}],tools:[],customFutureField:'keep'};
+  const current={name:'客服',base_model:'latentx-realtime-2.5-mini',asr_language:'zh-CN',tts_language:'yue-HK',knowledge_refs:[{id:'faq',version:'v1'}],skills:[{id:'sop',version:'v1',preload:false}],tools:[],customFutureField:'keep'};
   const next=draftConfig(current,{name:'新名称',greeting:'渠道欢迎语',revision:9,channel:{idle_timeout_ms:60000}});
   assert.deepEqual(next,{...current,name:'新名称'});
   assert.deepEqual(draftConfig(next,{knowledge_refs:[]}).knowledge_refs,[]);
@@ -23,11 +23,24 @@ test('partial draft updates preserve new language and knowledge fields and separ
   assert.deepEqual(credentialRequest({model:'custom-model-v1',config:{instructions:'不要覆盖',asr_language:'zh-CN'},channel:{greeting:'',idle_timeout_ms:60000}}),
     {model:'custom-model-v1',from:'studio-partner',greeting:'',idle_timeout_ms:60000,allow_mcp_tools:false});
 });
-test('language choices must belong to their own component, including asymmetric Cantonese support', () => {
-  const catalog={components:[{kind:'asr',id:'asr',languages:['auto','zh-CN']},{kind:'tts',id:'tts',languages:['yue-HK']}]};
-  assert.doesNotThrow(()=>checkLanguages({asr:'asr',tts:'tts',asr_language:'zh-CN',tts_language:'yue-HK'},catalog));
-  assert.throws(()=>checkLanguages({asr:'asr',asr_language:'yue-HK'},catalog));
-  assert.doesNotThrow(()=>checkLanguages({asr:'asr',tts:'tts',asr_language:'',tts_language:''},catalog));
+test('model capabilities validate language direction, voice and explicit legacy migration', () => {
+  const catalog={voice_models:[{id:'standard',input_languages:['auto','zh-CN'],output_languages:['yue-HK'],voices:[{id:'standard-voice'}]},
+    {id:'multilingual',input_languages:['zho'],output_languages:['zh','en'],voices:[{id:'limited',languages:['en']}]}]};
+  assert.doesNotThrow(()=>checkLanguages({base_model:'standard',asr_language:'zh-CN',tts_language:'yue-HK',voice:'standard-voice'},catalog));
+  assert.throws(()=>checkLanguages({base_model:'standard',asr_language:'yue-HK'},catalog));
+  assert.throws(()=>checkLanguages({base_model:'standard',voice:'limited'},catalog));
+  assert.throws(()=>checkLanguages({base_model:'multilingual',tts_language:'zh',voice:'limited'},catalog));
+  assert.doesNotThrow(()=>checkLanguages({base_model:'multilingual',tts_language:'en',voice:'limited'},catalog));
+  assert.doesNotThrow(()=>checkLanguages({base_model:'standard',asr_language:'',tts_language:''},catalog));
+  const legacy={name:'old',llm:'legacy',asr:'legacy',tts:'legacy',skills:[],knowledge_refs:[]};
+  const empty=draftConfig(legacy,{name:'renamed'});
+  assert.equal(empty.base_model,undefined);
+  assert.throws(()=>checkLanguages(empty,catalog),/明确选择/);
+  const migrated=draftConfig(legacy,{base_model:'standard',llm:'injected',asr:'injected',tts:'injected'});
+  for(const key of ['llm','asr','tts'])assert.equal(Object.hasOwn(migrated,key),false);
+  assert.equal(migrated.base_model,'standard');
+  assert.equal(legacy.llm,'legacy');
+  assert.doesNotThrow(()=>checkLanguages(migrated,catalog));
 });
 test('IM inherits a published model without clearing prompt, Skill or knowledge search', () => {
   class Socket extends EventEmitter {readyState=1;sent=[];send(v){this.sent.push(JSON.parse(v));}close(){this.readyState=3;}}

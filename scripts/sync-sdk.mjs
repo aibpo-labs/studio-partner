@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 const files = [
   [
     "latentx-voice.js",
-    "29d22b4614061ede8436da563efe8c84ee77ef47e077e21be1cec0fab5ddc733",
+    "713516e7ded7a8326c17d2e6b3391d96ff3b25f3de48c53afd6290d58318d133",
   ],
   [
     "JsSIP-LICENSE.txt",

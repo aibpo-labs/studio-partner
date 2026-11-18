@@ -2,6 +2,7 @@
 import { mkdir, readdir, readFile, writeFile, lstat } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { isIP } from 'node:net';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const target = path.join(root, '.local/exports/studio-partner');
@@ -26,6 +27,9 @@ async function collect(relative) {
   const data = await readFile(full), text = data.toString('utf8');
   const sensitive = /sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|LTAI[0-9A-Za-z]{16,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----|(?:\/Users\/|\/home\/)\w+\/|https?:\/\/(?!127\.0\.0\.1\b)(?:\d{1,3}\.){3}\d{1,3}|["'`]\d{18,20}["'`]/;
   if (sensitive.test(text)) throw new Error(`Review required before export: ${relative}`);
+  const addresses = text.match(/(?<![\w.])(?:\d{1,3}\.){3}\d{1,3}(?![\w.])/g) || [];
+  if (addresses.some(value => isIP(value) && value !== '127.0.0.1'))
+    throw new Error(`Network address requires review before export: ${relative}`);
   if (/(?:^|\/)(?:\.env|\.local|\.git|evidence|node_modules)(?:\/|$)/.test(relative)) throw new Error(`Private path: ${relative}`);
   collected.push({relative,data});
 }
